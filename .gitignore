@@ -1,0 +1,9 @@
+# Dependencies and temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Sensitive environment files if any
+.env
+.env.local

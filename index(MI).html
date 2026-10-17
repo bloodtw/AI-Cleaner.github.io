@@ -564,6 +564,7 @@
             "endTime": "結束時間 (轉換為 24小時制 HH:mm 格式，例如：12:00)",
             "customerPhone": "客戶電話",
             "cleaningAddress": "清潔地址",
+            "totalAmount": "每單總收入/金額 (特別說明：僅當圖片中出現『幫棒』或『bounbang』字樣時擷取金額，例如：1199元；若為大管家平台/工單明細請留空白『』)",
             "notes": "備註或要求（嚴格金額規定：只要圖片上方中間出現『工單明細』或為『大管家平台』，無論圖片中是否有顯示『原價』、『特價』或任何金額數字，絕對『不要擷取』金額，備註中『絕對不可出現任何金額與總收入』！只有『幫棒平台』(有幫棒/bounbang字樣)的圖片才要在備註最前面標明『總收入：XXXX元』。接著請將「完整地址」擷取並放在備註中，然後完整擷取並保留『客服留言』與『客人端留言』的所有細節。請注意：不要擷取「服務前一天，務必電聯或簡訊提醒客戶」及「若臨時無法服務，請盡速告知客服」這兩段文字）"
           }
         `;
@@ -595,6 +596,18 @@
         if(data.customerPhone) document.getElementById('customerPhone').value = data.customerPhone;
         if(data.cleaningAddress) document.getElementById('cleaningAddress').value = data.cleaningAddress;
 
+        // Handle Total Amount for 幫棒
+        let amt = data.totalAmount || '';
+        if (pName === '幫棒平台' || text.includes('幫棒') || text.toLowerCase().includes('bounbang')) {
+          if (!amt && data.notes) {
+            const match = data.notes.match(/總收入[:：]?\s*([\$\d,]+元?)/);
+            if (match) amt = match[1];
+          }
+          if (amt && !amt.includes('元') && /^\d+$/.test(amt.trim())) {
+            amt += '元';
+          }
+        }
+
         let notesVal = data.notes || '';
         if (pName === '大管家平台' || text.includes('工單明細')) {
           notesVal = notesVal
@@ -604,6 +617,11 @@
             .replace(/D\s*:\s*\d+小時.*?(元|$)/g, '')
             .replace(/[\$\d,]+元/g, '')
             .trim();
+        } else if (pName === '幫棒平台' || text.includes('幫棒') || text.toLowerCase().includes('bounbang')) {
+          if (amt) {
+            notesVal = notesVal.replace(/總收入[:：]?\s*[\$\d,]+元?\n?/g, '').trim();
+            notesVal = `總收入：${amt}\n${notesVal}`.trim();
+          }
         }
         document.getElementById('notes').value = notesVal;
 

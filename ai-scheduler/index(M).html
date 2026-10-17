@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>✨ AI 清潔排班神器 (手機版)</title>
+  <style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #ffffff;
+  color: #202124;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.container {
+  background: white;
+  width: 100%;
+  max-width: 600px;
+  padding: 1.5rem 1rem;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+  margin-top: 1rem;
+}
+
+h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #202124;
+  margin-bottom: 0.8rem;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: #5f6368;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.api-key-section {
+  display: none; /* Hide API key section visually if it's not strictly necessary, or style it minimal */
+}
+
+/* We override display none to show it minimally */
+.api-key-section {
+  display: block;
+  background: #f8f9fa;
+  border: 1px solid #e8eaed;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.api-key-section label {
+  display: block;
+  font-size: 0.8rem;
+  color: #5f6368;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+
+.api-key-section input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font-size: 16px;
+  outline: none;
+  background-color: #fff;
+}
+
+.step-section {
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+  text-align: center;
+  color: #202124;
+}
+
+/* Material Design Upload Wrapper */
+.upload-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #dadce0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  background-color: #fff;
+  transition: border-color 0.2s;
+}
+
+input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.custom-file-upload {
+  background-color: #e8eaed;
+  color: #3c4043;
+  padding: 1rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-right: 1px solid #dadce0;
+  white-space: nowrap;
+}
+
+.file-count-text {
+  padding: 1rem 1.25rem;
+  color: #5f6368;
+  font-size: 0.95rem;
+  flex-grow: 1;
+  text-align: left;
+}
+
+.image-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+  justify-content: center;
+}
+
+.image-preview img {
+  width: 90px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 1rem;
+  background-color: #1a73e8; /* Default Material Blue, can be green if user prefers */
+  background-color: #34a853; /* Green to match the screenshot */
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(52, 168, 83, 0.2);
+  transition: transform 0.1s, box-shadow 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  background-color: #dadce0;
+  color: #80868b;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.status-message {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  min-height: 1.5em;
+}
+
+.status-message.success { color: #1e8e3e; }
+.status-message.error { color: #d93025; }
+.status-message.loading { color: #1a73e8; }
+
+.form-section {
+  border-top: 1px dashed #e8eaed;
+  padding-top: 2rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+/* Specific to columns if we want side-by-side on mobile, but user prefers simple, so 1fr is fine, 
+   except for fields that are very short! We could do 2 columns for time. */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3c4043;
+  margin-bottom: 0.5rem;
+}
+
+.required {
+  color: #d93025;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="time"],
+input[type="tel"],
+textarea {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font-size: 16px; /* prevent iOS zoom */
+  color: #202124;
+  background-color: #f8f9fa;
+  transition: border-color 0.2s, background-color 0.2s;
+  font-family: inherit;
+  outline: none;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #1a73e8;
+  background-color: #fff;
+  box-shadow: inset 0 0 0 1px #1a73e8;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 1rem;
+  background-color: #fff;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+  border-radius: 20px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-secondary:active {
+  background-color: #f1f3f4;
+}
+
+.google-login-section {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.btn-outline {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 1rem;
+  background-color: #fff;
+  color: #1a73e8;
+  border: 1px solid #1a73e8;
+  border-radius: 20px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.btn-outline:active {
+  background-color: #e8f0fe;
+}
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>✨ AI 清潔排班神器</h1>
+      <p class="subtitle">📸 上傳訂單/對話截圖，AI 自動填表並生成 Google 日曆事件！</p>
+    </header>
+
+    <div class="api-key-section">
+      <label for="apiKey">Gemini API Key (本機儲存)</label>
+      <input type="password" id="apiKey" placeholder="請輸入 API Key 以啟用 AI 辨識" />
+    </div>
+
+    <section class="step-section">
+      <h2>步驟一：上傳預約圖片 (可多張)</h2>
+      <div class="upload-wrapper" id="dropZone">
+        <input type="file" id="fileInput" multiple accept="image/*">
+        <label for="fileInput" class="custom-file-upload">
+          選擇檔案
+        </label>
+        <span id="fileCount" class="file-count-text">未選擇任何檔案</span>
+      </div>
+      <div id="imagePreview" class="image-preview" style="margin-top: 15px;"></div>
+      
+      <button id="aiButton" class="btn-primary" disabled style="margin-top: 10px;">
+        🤖 AI 自動識別並排班
+      </button>
+      <p id="statusMessage" class="status-message"></p>
+    </section>
+
+    <section class="step-section form-section">
+      <h2>步驟二：填寫與修正欄位</h2>
+      
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="platform">平台</label>
+          <input type="text" id="platform" placeholder="例：大管家平台 或 幫棒平台">
+        </div>
+        <div class="form-group">
+          <label for="region">區域</label>
+          <input type="text" id="region" placeholder="例：萬華">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="customerName">客戶姓名</label>
+          <input type="text" id="customerName" placeholder="例：趙怡如">
+        </div>
+        <div class="form-group">
+          <label for="customerPhone">客戶電話</label>
+          <input type="tel" id="customerPhone" placeholder="例：0916162448">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="serviceType">清潔類型</label>
+        <input type="text" id="serviceType" placeholder="例：定期清潔 或 居家清潔">
+      </div>
+
+      <div class="form-group">
+        <label for="cleaningDate">清潔日期 <span class="required">*</span></label>
+        <input type="date" id="cleaningDate">
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="startTime">清潔時間 <span class="required">*</span> (開始)</label>
+          <input type="time" id="startTime">
+        </div>
+        <div class="form-group">
+          <label for="endTime">(結束)</label>
+          <input type="time" id="endTime">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cleaningAddress">清潔地址 (日曆位置)</label>
+        <input type="text" id="cleaningAddress" placeholder="例：臺北市萬華區昆明街312-1號3樓">
+      </div>
+
+      <div class="form-group">
+        <label for="notes">清潔要求/備註 (日曆說明)</label>
+        <textarea id="notes" rows="4" placeholder="例：家中有養貓"></textarea>
+      </div>
+
+    </section>
+
+    <button id="calendarButton" class="btn-secondary">
+      📅 新增至 Google 日曆
+    </button>
+  </div>
+
+  <script>
+    let GoogleGenerativeAI;
+
+    const apiKeyInput = document.getElementById('apiKey');
+    const fileInput = document.getElementById('fileInput');
+    const fileCount = document.getElementById('fileCount');
+    const imagePreview = document.getElementById('imagePreview');
+    const aiButton = document.getElementById('aiButton');
+    const statusMessage = document.getElementById('statusMessage');
+    const calendarButton = document.getElementById('calendarButton');
+
+    // Load API key from local storage
+    const savedApiKey = localStorage.getItem('geminiApiKey');
+    if (savedApiKey) {
+      apiKeyInput.value = savedApiKey;
+    }
+
+    apiKeyInput.addEventListener('change', (e) => {
+      localStorage.setItem('geminiApiKey', e.target.value);
+    });
+
+    let uploadedFiles = [];
+
+    const handleFiles = (files) => {
+      uploadedFiles = Array.from(files).filter(file => {
+        return file.type.startsWith('image/') || 
+               file.name.match(/\.(jpg|jpeg|png|gif|webp|heic|heif)$/i) ||
+               file.type === '';
+      });
+      if (uploadedFiles.length > 0) {
+        fileCount.textContent = `已選擇 ${uploadedFiles.length} 個檔案`;
+        aiButton.disabled = false;
+        renderPreviews(uploadedFiles);
+        statusMessage.textContent = '準備就緒，您可以點擊下方按鈕開始 AI 識別！';
+        statusMessage.className = 'status-message loading';
+        
+        // Auto-trigger AI if API key is present
+        if (apiKeyInput.value.trim()) {
+           statusMessage.textContent = '偵測到圖片與 API Key，自動開始 AI 識別...';
+           aiButton.click();
+        }
+      } else {
+        fileCount.textContent = '未選擇任何檔案，或檔案格式不支援';
+        aiButton.disabled = true;
+        imagePreview.innerHTML = '';
+      }
+    };
+
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(e.target.files);
+    });
+
+    // Drag and Drop support
+    const dropZone = document.getElementById('dropZone');
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#28a745';
+      dropZone.style.backgroundColor = '#f4fbf5';
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#ccc';
+      dropZone.style.backgroundColor = 'transparent';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#ccc';
+      dropZone.style.backgroundColor = 'transparent';
+      handleFiles(e.dataTransfer.files);
+    });
+
+    function renderPreviews(files) {
+      imagePreview.innerHTML = '';
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          imagePreview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function fileToGenerativePart(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result.split(',')[1];
+          
+          let mimeType = file.type;
+          if (!mimeType) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext === 'heic') mimeType = 'image/heic';
+            else if (ext === 'heif') mimeType = 'image/heif';
+            else if (ext === 'png') mimeType = 'image/png';
+            else if (ext === 'webp') mimeType = 'image/webp';
+            else mimeType = 'image/jpeg';
+          }
+
+          resolve({
+            inlineData: {
+              data: base64Data,
+              mimeType: mimeType
+            }
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function simplifyServiceType(serviceType) {
+      if (!serviceType) return '居家清潔';
+      let s = serviceType.trim();
+
+      if (s.includes('幫棒居家-居家清掃') || s.includes('居家清掃')) {
+        s = s.replace(/幫棒居家-居家清掃/g, '居家清潔').replace(/居家清掃/g, '居家清潔');
+      }
+      if (s.includes('幫棒居家-小套房清潔')) {
+        s = s.replace(/幫棒居家-小套房清潔/g, '小套房清潔');
+      }
+      if (s.includes('辦公室清潔-辦公室清潔')) {
+        s = s.replace(/辦公室清潔-辦公室清潔/g, '辦公室清潔');
+      }
+
+      s = s.replace(/幫棒/g, '').trim();
+
+      if (s.includes('-')) {
+        const parts = s.split('-').map(p => p.trim()).filter(Boolean);
+        if (parts.length === 2 && parts[0] === parts[1]) {
+          s = parts[0];
+        } else if (parts.length >= 2 && parts[0] === '居家' && parts[1] === '居家清潔') {
+          s = '居家清潔';
+        }
+      }
+
+      s = s.replace(/^[-_\s]+/, '').trim();
+      return s || '居家清潔';
+    }
+
+    aiButton.addEventListener('click', async () => {
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) {
+        alert('請先輸入 Gemini API Key');
+        return;
+      }
+
+      try {
+        aiButton.disabled = true;
+        aiButton.textContent = '🔄 AI 識別中...';
+        statusMessage.textContent = '正在分析圖片，請稍候...';
+        statusMessage.className = 'status-message loading';
+
+        if (!GoogleGenerativeAI) {
+          const importWithTimeout = (url, timeoutMs = 4000) => {
+            return Promise.race([
+              import(url),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs))
+            ]);
+          };
+
+          try {
+            const module = await importWithTimeout("https://esm.run/@google/generative-ai");
+            GoogleGenerativeAI = module.GoogleGenerativeAI;
+          } catch (importErr) {
+            console.warn("esm.run failed, trying jsdelivr npm cdn...", importErr);
+            try {
+              const module = await importWithTimeout("https://cdn.jsdelivr.net/npm/@google/generative-ai/+esm");
+              GoogleGenerativeAI = module.GoogleGenerativeAI;
+            } catch (importErr2) {
+              console.warn("jsdelivr npm failed, trying esm.sh...", importErr2);
+              try {
+                const module = await importWithTimeout("https://esm.sh/@google/generative-ai");
+                GoogleGenerativeAI = module.GoogleGenerativeAI;
+              } catch (importErr3) {
+                console.error("All CDNs failed to load generative-ai", importErr3);
+              }
+            }
+          }
+        }
+        
+        if (!GoogleGenerativeAI) {
+           throw new Error("無法加載 AI 模型模組，請檢查您的網路連線或稍後再試。");
+        }
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        
+        // Dynamically fetch available models to prevent 404 errors
+        let targetModelName = "gemini-3.1-flash-lite"; // default fallback
+        try {
+          statusMessage.textContent = '正在獲取可用的 AI 模型列表...';
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          
+          const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (modelsRes.ok) {
+            const modelsData = await modelsRes.json();
+            // Find a model that supports generateContent and contains 'flash' or 'vision' or 'pro'
+            // We prioritize the most cost-effective and newer models requested by the user.
+            const validModels = modelsData.models.filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"));
+            
+            const preferred = validModels.find(m => m.name.endsWith("gemini-3.1-flash-lite")) ||
+                              validModels.find(m => m.name.endsWith("gemini-3-flash")) || 
+                              validModels.find(m => m.name.endsWith("gemini-3.0-flash")) ||
+                              validModels.find(m => m.name.endsWith("gemini-1.5-flash"));
+            
+            if (preferred) {
+              targetModelName = preferred.name.replace('models/', '');
+              console.log("Dynamically selected model:", targetModelName);
+            } else {
+               // Fallback if the exact preview names aren't found in the list
+               targetModelName = "gemini-3.1-flash-lite"; 
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to fetch model list or timed out, using fallback", e);
+        }
+
+        statusMessage.textContent = `正在使用 ${targetModelName} 分析圖片，請稍候...`;
+        const model = genAI.getGenerativeModel({ model: targetModelName }); 
+
+        const imageParts = await Promise.all(uploadedFiles.map(fileToGenerativePart));
+
+        const prompt = `
+          這是一張或多張清潔預約的訂單或對話截圖。請幫我萃取以下資訊，並嚴格使用 JSON 格式輸出，不要有任何 Markdown 前綴。
+          若找不到對應資訊則保留空白字串或預設格式。
+          {
+            "platform": "平台名稱 (嚴格判斷規則：1. 若圖片上方中間出現『工單明細』，請務必填入『大管家平台』；2. 若圖片中出現『幫棒』或『bounbang』字樣，請填入『幫棒平台』；3. 若皆無標示，請填入『平台』或其它識別到的平台名稱。請注意：填入的名稱不要包含中括號『【』或『】』)",
+            "region": "區域 (例如：萬華、中山、信義)",
+            "customerName": "客戶姓名 (例如：趙怡如、陳先生、王儷縉)",
+            "serviceType": "清潔類型 (請從圖片文字中萃取並進行簡化與去重：若為『幫棒居家-居家清掃』請簡化為『居家清潔』；若為『幫棒居家-小套房清潔』請簡化為『小套房清潔』；若為『辦公室清潔-辦公室清潔』請簡化為『辦公室清潔』。若圖片中完全未標示任何清潔類型，請預設填入『居家清潔』。注意：務必將『幫棒』二字與重覆詞彙去除)",
+            "cleaningDate": "清潔日期 (轉換為 YYYY-MM-DD 格式)",
+            "startTime": "開始時間 (轉換為 24小時制 HH:mm 格式，例如：08:00)",
+            "endTime": "結束時間 (轉換為 24小時制 HH:mm 格式，例如：12:00)",
+            "customerPhone": "客戶電話",
+            "cleaningAddress": "清潔地址",
+            "totalAmount": "每單總收入/金額 (特別說明：僅當圖片中出現『幫棒』或『bounbang』字樣時擷取金額，例如：1199元；若為大管家平台/工單明細請留空白『』)",
+            "notes": "備註或要求（嚴格金額規定：只要圖片上方中間出現『工單明細』或為『大管家平台』，無論圖片中是否有顯示『原價』、『特價』或任何金額數字，絕對『不要擷取』金額，備註中『絕對不可出現任何金額與總收入』！只有『幫棒平台』(有幫棒/bounbang字樣)的圖片才要在備註最前面標明『總收入：XXXX元』。接著請將「完整地址」擷取並放在備註中，然後完整擷取並保留『客服留言』與『客人端留言』的所有細節。請注意：不要擷取「服務前一天，務必電聯或簡訊提醒客戶」及「若臨時無法服務，請盡速告知客服」這兩段文字）"
+          }
+        `;
+
+        const result = await model.generateContent([prompt, ...imageParts]);
+        const response = await result.response;
+        let text = response.text();
+        
+        // Clean JSON text
+        text = text.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+        const data = JSON.parse(text);
+
+        // Fill Form
+        let pName = data.platform ? data.platform.replace(/[【】]/g, '').trim() : '平台';
+        if (text.includes('工單明細')) {
+          pName = '大管家平台';
+        } else if (text.includes('幫棒') || (data.serviceType && data.serviceType.includes('幫棒'))) {
+          pName = '幫棒平台';
+        }
+        document.getElementById('platform').value = pName;
+
+        if(data.region) document.getElementById('region').value = data.region;
+        if(data.customerName) document.getElementById('customerName').value = data.customerName;
+        document.getElementById('serviceType').value = simplifyServiceType(data.serviceType);
+
+        if(data.cleaningDate) document.getElementById('cleaningDate').value = data.cleaningDate;
+        if(data.startTime) document.getElementById('startTime').value = data.startTime;
+        if(data.endTime) document.getElementById('endTime').value = data.endTime;
+        if(data.customerPhone) document.getElementById('customerPhone').value = data.customerPhone;
+        if(data.cleaningAddress) document.getElementById('cleaningAddress').value = data.cleaningAddress;
+
+        // Handle Total Amount for 幫棒
+        let amt = data.totalAmount || '';
+        if (pName === '幫棒平台' || text.includes('幫棒') || text.toLowerCase().includes('bounbang')) {
+          if (!amt && data.notes) {
+            const match = data.notes.match(/總收入[:：]?\s*([\$\d,]+元?)/);
+            if (match) amt = match[1];
+          }
+          if (amt && !amt.includes('元') && /^\d+$/.test(amt.trim())) {
+            amt += '元';
+          }
+        }
+
+        let notesVal = data.notes || '';
+        if (pName === '大管家平台' || text.includes('工單明細')) {
+          notesVal = notesVal
+            .replace(/總收入[:：]?\s*[\$\d,]+元?/g, '')
+            .replace(/原價[:：]?\s*[\$\d,]+元?/g, '')
+            .replace(/特價[:：]?\s*[\$\d,]+元?/g, '')
+            .replace(/D\s*:\s*\d+小時.*?(元|$)/g, '')
+            .replace(/[\$\d,]+元/g, '')
+            .trim();
+        } else if (pName === '幫棒平台' || text.includes('幫棒') || text.toLowerCase().includes('bounbang')) {
+          if (amt) {
+            notesVal = notesVal.replace(/總收入[:：]?\s*[\$\d,]+元?\n?/g, '').trim();
+            notesVal = `總收入：${amt}\n${notesVal}`.trim();
+          }
+        }
+        document.getElementById('notes').value = notesVal;
+
+        statusMessage.textContent = '✅ AI 識別成功，已自動填表！';
+        statusMessage.className = 'status-message success';
+
+      } catch (error) {
+        console.error('Error:', error);
+        statusMessage.textContent = '❌ 識別失敗：' + error.message;
+        statusMessage.className = 'status-message error';
+      } finally {
+        aiButton.disabled = false;
+        aiButton.textContent = '🤖 AI 自動識別並排班';
+      }
+    });
+
+    calendarButton.addEventListener('click', () => {
+      let platform = (document.getElementById('platform').value || '平台').replace(/[【】]/g, '').trim();
+      const region = document.getElementById('region').value || '';
+      let serviceType = simplifyServiceType(document.getElementById('serviceType').value || '居家清潔');
+      const customerName = document.getElementById('customerName').value || '';
+      const customerPhone = document.getElementById('customerPhone').value || '';
+      
+      const title = `【${platform}】${region} | ${serviceType} | ${customerName} | ${customerPhone}`;
+      
+      const date = document.getElementById('cleaningDate').value.replace(/-/g, ''); // YYYYMMDD
+      const startT = document.getElementById('startTime').value.replace(':', '') + '00'; // HHMMSS
+      const endT = document.getElementById('endTime').value.replace(':', '') + '00'; // HHMMSS
+
+      if (!date || !document.getElementById('startTime').value || !document.getElementById('endTime').value) {
+        alert('請確保「清潔日期」、「開始時間」與「結束時間」已填寫！');
+        return;
+      }
+
+      // Convert to UTC by subtracting 8 hours (assuming Taiwan GMT+8 for simplicity, or just let Google figure out local if we use generic string format, 
+      // but Google Calendar template expects either UTC (Z) or localized string. 
+      // Actually, YYYYMMDDTHHMMSS in Google Cal URL without Z treats it as user's current timezone.
+      const dates = `${date}T${startT}/${date}T${endT}`;
+      const location = document.getElementById('cleaningAddress').value;
+      const details = `電話：${customerPhone}%0A備註：${document.getElementById('notes').value}`;
+
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${dates}&details=${details}&location=${encodeURIComponent(location)}`;
+      
+      window.open(url, '_blank');
+    });
+
+  </script>
+</body>
+</html>
