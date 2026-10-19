@@ -340,9 +340,9 @@
             "region": "區域 (例如：萬華、中山、信義)",
             "customerName": "客戶姓名 (例如：趙怡如、陳先生、王儷縉)",
             "serviceType": "清潔類型 (請從圖片文字中萃取並進行簡化與去重：若為『幫棒居家-居家清掃』請簡化為『居家清潔』；若為『幫棒居家-小套房清潔』請簡化為『小套房清潔』；若為『辦公室清潔-辦公室清潔』請簡化為『辦公室清潔』。若圖片中完全未標示任何清潔類型，請預設填入『居家清潔』。注意：務必將『幫棒』二字與重覆詞彙去除)",
-            "cleaningDate": "清潔日期 (轉換為 YYYY-MM-DD 格式)",
-            "startTime": "開始時間 (轉換為 24小時制 HH:mm 格式，例如：08:00)",
-            "endTime": "結束時間 (轉換為 24小時制 HH:mm 格式，例如：12:00)",
+            "cleaningDate": "清潔日期 (請轉換為 YYYY-MM-DD 格式，例如：2026-11-09)",
+            "startTime": "開始時間 (請務必轉換為 24 小時制 HH:mm 格式。若原圖為下午、PM 或 1:00，請轉為 13:00，例如：08:00、13:00)",
+            "endTime": "結束時間 (請務必轉換為 24 小時制 HH:mm 格式。若原圖為下午、PM 或 5:00，請轉為 17:00，例如：12:00、17:00)",
             "customerPhone": "客戶電話",
             "cleaningAddress": "清潔地址",
             "totalAmount": "每單總收入/金額 (特別說明：僅當圖片中出現『幫棒』或『bounbang』字樣時擷取金額，例如：1199元；若為大管家平台/工單明細請留空白『』)",
@@ -371,9 +371,30 @@
         if(data.customerName) document.getElementById('customerName').value = data.customerName;
         document.getElementById('serviceType').value = simplifyServiceType(data.serviceType);
 
-        if(data.cleaningDate) document.getElementById('cleaningDate').value = data.cleaningDate;
-        if(data.startTime) document.getElementById('startTime').value = data.startTime;
-        if(data.endTime) document.getElementById('endTime').value = data.endTime;
+        if(data.cleaningDate) {
+          const dMatch = data.cleaningDate.match(/(\d{4})[-/.\s年]?(\d{1,2})[-/.\s月]?(\d{1,2})/);
+          if (dMatch) {
+            document.getElementById('cleaningDate').value = `${dMatch[1]}-${dMatch[2].padStart(2, '0')}-${dMatch[3].padStart(2, '0')}`;
+          } else {
+            document.getElementById('cleaningDate').value = data.cleaningDate;
+          }
+        }
+        if(data.startTime) {
+          const tMatch = data.startTime.match(/(\d{1,2}):(\d{2})/);
+          if (tMatch) {
+            document.getElementById('startTime').value = `${tMatch[1].padStart(2, '0')}:${tMatch[2]}`;
+          } else {
+            document.getElementById('startTime').value = data.startTime;
+          }
+        }
+        if(data.endTime) {
+          const tMatch = data.endTime.match(/(\d{1,2}):(\d{2})/);
+          if (tMatch) {
+            document.getElementById('endTime').value = `${tMatch[1].padStart(2, '0')}:${tMatch[2]}`;
+          } else {
+            document.getElementById('endTime').value = data.endTime;
+          }
+        }
         if(data.customerPhone) document.getElementById('customerPhone').value = data.customerPhone;
         if(data.cleaningAddress) document.getElementById('cleaningAddress').value = data.cleaningAddress;
 
@@ -419,6 +440,30 @@
       }
     });
 
+    function parseDateString(rawDate) {
+      if (!rawDate) return '';
+      const match = rawDate.match(/(\d{4})[-/.\s年]?(\d{1,2})[-/.\s月]?(\d{1,2})/);
+      if (match) {
+        const y = match[1];
+        const m = match[2].padStart(2, '0');
+        const d = match[3].padStart(2, '0');
+        return `${y}${m}${d}`;
+      }
+      return rawDate.replace(/\D/g, '');
+    }
+
+    function parseTimeString(rawTime) {
+      if (!rawTime) return '';
+      const match = rawTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (match) {
+        const hh = match[1].padStart(2, '0');
+        const mm = match[2];
+        const ss = match[3] ? match[3].padStart(2, '0') : '00';
+        return `${hh}${mm}${ss}`;
+      }
+      return '';
+    }
+
     calendarButton.addEventListener('click', () => {
       let platform = (document.getElementById('platform').value || '平台').replace(/[【】]/g, '').trim();
       const region = document.getElementById('region').value || '';
@@ -428,23 +473,47 @@
       
       const title = `【${platform}】${region} | ${serviceType} | ${customerName} | ${customerPhone}`;
       
-      const date = document.getElementById('cleaningDate').value.replace(/-/g, ''); // YYYYMMDD
-      const startT = document.getElementById('startTime').value.replace(':', '') + '00'; // HHMMSS
-      const endT = document.getElementById('endTime').value.replace(':', '') + '00'; // HHMMSS
+      const rawDate = document.getElementById('cleaningDate').value;
+      const rawStart = document.getElementById('startTime').value;
+      const rawEnd = document.getElementById('endTime').value;
 
-      if (!date || !document.getElementById('startTime').value || !document.getElementById('endTime').value) {
+      if (!rawDate || !rawStart || !rawEnd) {
         alert('請確保「清潔日期」、「開始時間」與「結束時間」已填寫！');
         return;
       }
 
-      // Convert to UTC by subtracting 8 hours (assuming Taiwan GMT+8 for simplicity, or just let Google figure out local if we use generic string format, 
-      // but Google Calendar template expects either UTC (Z) or localized string. 
-      // Actually, YYYYMMDDTHHMMSS in Google Cal URL without Z treats it as user's current timezone.
-      const dates = `${date}T${startT}/${date}T${endT}`;
-      const location = document.getElementById('cleaningAddress').value;
-      const details = `電話：${customerPhone}%0A備註：${document.getElementById('notes').value}`;
+      const startDate = parseDateString(rawDate);
+      const startTime = parseTimeString(rawStart);
+      const endTime = parseTimeString(rawEnd);
 
-      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${dates}&details=${details}&location=${encodeURIComponent(location)}`;
+      if (startDate.length !== 8 || startTime.length !== 6 || endTime.length !== 6) {
+        alert('日期或時間格式有誤，請確認格式（例如：2026/11/09 的 13:00 至 17:00）');
+        return;
+      }
+
+      let endDate = startDate;
+      if (parseInt(startTime, 10) > parseInt(endTime, 10)) {
+        const y = parseInt(startDate.substring(0, 4), 10);
+        const m = parseInt(startDate.substring(4, 6), 10) - 1;
+        const d = parseInt(startDate.substring(6, 8), 10);
+        const nextDay = new Date(y, m, d + 1);
+        const nextY = nextDay.getFullYear();
+        const nextM = String(nextDay.getMonth() + 1).padStart(2, '0');
+        const nextD = String(nextDay.getDate()).padStart(2, '0');
+        endDate = `${nextY}${nextM}${nextD}`;
+      }
+
+      const dates = `${startDate}T${startTime}/${endDate}T${endTime}`;
+      const location = document.getElementById('cleaningAddress').value || '';
+      const notes = document.getElementById('notes').value || '';
+      const details = customerPhone ? `電話：${customerPhone}\n備註：\n${notes}` : notes;
+
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE`
+        + `&text=${encodeURIComponent(title)}`
+        + `&dates=${dates}`
+        + `&details=${encodeURIComponent(details)}`
+        + `&location=${encodeURIComponent(location)}`
+        + `&ctz=Asia/Taipei`;
       
       window.open(url, '_blank');
     });
