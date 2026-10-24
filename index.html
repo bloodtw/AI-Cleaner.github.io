@@ -239,6 +239,136 @@
     .required {
       color: var(--danger);
     }
+
+    /* Button Spinner */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .btn-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    /* Usage Counter Box */
+    .usage-badge-box {
+      margin: 10px 16px 4px;
+      padding: 9px 12px;
+      background: #F2F2F7;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      border-radius: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: #3A3A3C;
+      line-height: 1.45;
+    }
+    .usage-badge-box strong {
+      color: var(--system-blue);
+      font-weight: 700;
+    }
+    .usage-subtext {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #8E8E93;
+    }
+
+    /* 429 Modal */
+    .custom-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+      box-sizing: border-box;
+      animation: fadeIn 0.25s ease-out;
+    }
+    .custom-modal-box {
+      background: #ffffff;
+      width: 100%;
+      max-width: 380px;
+      border-radius: 20px;
+      padding: 24px 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+      text-align: center;
+      box-sizing: border-box;
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes popIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .modal-icon {
+      font-size: 42px;
+      margin-bottom: 8px;
+    }
+    .modal-title {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1C1C1E;
+    }
+    .modal-content {
+      margin: 0 0 20px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #3A3A3C;
+      text-align: left;
+    }
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .modal-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .modal-btn:active {
+      transform: scale(0.98);
+      opacity: 0.85;
+    }
+    .modal-btn-primary {
+      background: var(--system-blue);
+      color: #ffffff;
+    }
+    .modal-btn-secondary {
+      background: #F2F2F7;
+      color: #8E8E93;
+    }
+    .highlight-pulse {
+      animation: highlightPulse 2s ease-out;
+    }
+    @keyframes highlightPulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.8); }
+      50% { box-shadow: 0 0 0 10px rgba(0, 122, 255, 0.3); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0); }
+    }
   </style>
 </head>
 <body>
@@ -274,6 +404,12 @@
     <button id="aiButton" class="ios-button ios-button-primary" disabled>
       開始 AI 自動識別
     </button>
+
+    <div id="usageNoticeBox" class="usage-badge-box">
+      📊 您今日已嘗試辨識：<strong id="usageCountDisplay">0</strong> / 15 次
+      <span class="usage-subtext">（公用通道資源有限，請勿頻繁連點）</span>
+    </div>
+
     <p id="statusMessage" class="status-message"></p>
 
     <div class="section-title">步驟二：確認欄位</div>
@@ -360,6 +496,122 @@
     apiKeyInput.addEventListener('input', saveApiKey);
     apiKeyInput.addEventListener('change', saveApiKey);
 
+    // === 1. 按鈕冷卻鎖定管理 ===
+    let isCooldownActive = false;
+    const DEFAULT_AI_BTN_TEXT = '開始 AI 自動識別';
+
+    function startCooldown(seconds = 10) {
+      isCooldownActive = true;
+      let remaining = seconds;
+      aiButton.disabled = true;
+      aiButton.textContent = `⏳ 請稍候 (${remaining}秒)...`;
+
+      const timer = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          aiButton.textContent = `⏳ 請稍候 (${remaining}秒)...`;
+        } else {
+          clearInterval(timer);
+          isCooldownActive = false;
+          aiButton.textContent = DEFAULT_AI_BTN_TEXT;
+          aiButton.disabled = uploadedFiles.length === 0;
+        }
+      }, 1000);
+    }
+
+    // === 2. 個人當天使用次數統計 (跨日自動歸零) ===
+    function getLocalDateString() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getDailyUsage() {
+      const today = getLocalDateString();
+      const savedDate = localStorage.getItem('ai_cleaner_usage_date');
+      if (savedDate !== today) {
+        localStorage.setItem('ai_cleaner_usage_date', today);
+        localStorage.setItem('ai_cleaner_usage_count', '0');
+        return 0;
+      }
+      const count = parseInt(localStorage.getItem('ai_cleaner_usage_count') || '0', 10);
+      return isNaN(count) ? 0 : count;
+    }
+
+    function updateUsageDisplay(count) {
+      const el = document.getElementById('usageCountDisplay');
+      if (el) {
+        el.textContent = count;
+      }
+    }
+
+    function incrementDailyUsage() {
+      const today = getLocalDateString();
+      const current = getDailyUsage();
+      const next = current + 1;
+      localStorage.setItem('ai_cleaner_usage_date', today);
+      localStorage.setItem('ai_cleaner_usage_count', String(next));
+      updateUsageDisplay(next);
+      return next;
+    }
+
+    // === 3. 429 塞車引導 Modal ===
+    function show429Modal() {
+      const modal = document.getElementById('modal429');
+      if (modal) {
+        modal.style.display = 'flex';
+      } else {
+        alert(
+          '【目前公用通道伺服器過載塞車中！】\n\n' +
+          '請您耐心等待 1 分鐘後再試。\n\n' +
+          '或者，強烈建議您點擊網頁上方的『API 設定』，輸入您個人專屬的免費金鑰，即可享受完全流暢、不塞車的辨識體驗！'
+        );
+      }
+    }
+
+    function init429Modal() {
+      const modal = document.getElementById('modal429');
+      const btnGoToApiKey = document.getElementById('btnGoToApiKey');
+      const btnClose = document.getElementById('btnClose429Modal');
+
+      if (btnClose) {
+        btnClose.addEventListener('click', () => {
+          if (modal) modal.style.display = 'none';
+        });
+      }
+
+      if (btnGoToApiKey) {
+        btnGoToApiKey.addEventListener('click', () => {
+          if (modal) modal.style.display = 'none';
+          const input = document.getElementById('apiKey');
+          if (input) {
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => {
+              input.focus();
+              const group = input.closest('.ios-group') || input;
+              group.classList.remove('highlight-pulse');
+              void group.offsetWidth;
+              group.classList.add('highlight-pulse');
+            }, 300);
+          }
+        });
+      }
+
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+      }
+    }
+
+    // 初始化當日次數與彈窗
+    updateUsageDisplay(getDailyUsage());
+    init429Modal();
+
     let uploadedFiles = [];
 
     const handleFiles = (files) => {
@@ -370,13 +622,15 @@
       });
       if (uploadedFiles.length > 0) {
         fileCount.textContent = `已選擇 ${uploadedFiles.length} 個檔案`;
-        aiButton.disabled = false;
+        if (!isCooldownActive) {
+          aiButton.disabled = false;
+        }
         renderPreviews(uploadedFiles);
         statusMessage.textContent = '準備就緒，您可以點擊按鈕開始！';
         statusMessage.className = 'status-message loading';
         
-        // Auto-trigger AI if API key is present
-        if (apiKeyInput.value.trim()) {
+        // Auto-trigger AI if API key is present and not in cooldown
+        if (!isCooldownActive && apiKeyInput.value.trim()) {
            statusMessage.textContent = '偵測到圖片與 API Key，自動開始 AI 識別...';
            aiButton.click();
         }
@@ -480,6 +734,8 @@
     }
 
     aiButton.addEventListener('click', async () => {
+      if (isCooldownActive) return;
+
       const apiKey = apiKeyInput.value.trim();
       if (!apiKey) {
         statusMessage.textContent = '⚠️ 請先輸入 Gemini API Key 才能開始識別！';
@@ -500,9 +756,12 @@
       // 確保金鑰已儲存至瀏覽器本地
       localStorage.setItem('geminiApiKey', apiKey);
 
+      // 記錄當日辨識嘗試次數
+      incrementDailyUsage();
+
       try {
         aiButton.disabled = true;
-        aiButton.textContent = '🔄 AI 識別中...';
+        aiButton.innerHTML = '<span class="btn-spinner"></span>AI 辨識中，請稍候...';
         statusMessage.textContent = '正在分析圖片，請稍候...';
         statusMessage.className = 'status-message loading';
 
@@ -551,6 +810,12 @@
           });
           clearTimeout(timeoutId);
           
+          if (modelsRes.status === 429) {
+            const err429 = new Error("429 Too Many Requests");
+            err429.status = 429;
+            throw err429;
+          }
+
           if (modelsRes.ok) {
             const modelsData = await modelsRes.json();
             const validModels = modelsData.models.filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"));
@@ -568,6 +833,9 @@
             }
           }
         } catch (e) {
+          if (e.status === 429 || String(e.message || '').includes('429')) {
+            throw e;
+          }
           console.warn("Failed to fetch model list or timed out, using fallback", e);
         }
 
@@ -676,11 +944,23 @@
 
       } catch (error) {
         console.error('Error:', error);
-        statusMessage.textContent = '❌ 識別失敗：' + error.message;
-        statusMessage.className = 'status-message error';
+        const errStr = (error?.message || '') + ' ' + (error?.toString() || '');
+        const is429 = error?.status === 429 || 
+                      errStr.includes('429') || 
+                      errStr.includes('RESOURCE_EXHAUSTED') || 
+                      errStr.includes('quota') || 
+                      errStr.includes('Too Many Requests');
+
+        if (is429) {
+          statusMessage.textContent = '⚠️ 公用通道伺服器過載塞車中 (429)，請稍候再試或輸入個人金鑰';
+          statusMessage.className = 'status-message error';
+          show429Modal();
+        } else {
+          statusMessage.textContent = '❌ 識別失敗：' + error.message;
+          statusMessage.className = 'status-message error';
+        }
       } finally {
-        aiButton.disabled = false;
-        aiButton.textContent = '開始 AI 自動識別';
+        startCooldown(10);
       }
     });
 
@@ -763,5 +1043,21 @@
     });
 
   </script>
+
+  <!-- 429 塞車錯誤引導 Modal -->
+  <div id="modal429" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box">
+      <div class="modal-icon">🚦</div>
+      <h3 class="modal-title">伺服器通道過載塞車中</h3>
+      <p class="modal-content">
+        目前公用通道伺服器過載塞車中！請您耐心等待 1 分鐘後再試。<br><br>
+        或者，<strong>強烈建議您點擊網頁上方的『API 設定』，輸入您個人專屬的免費金鑰</strong>，即可享受完全流暢、不塞車的辨識體驗！
+      </p>
+      <div class="modal-actions">
+        <button type="button" class="modal-btn modal-btn-primary" id="btnGoToApiKey">🔑 前往設定個人金鑰</button>
+        <button type="button" class="modal-btn modal-btn-secondary" id="btnClose429Modal">我知道了</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
