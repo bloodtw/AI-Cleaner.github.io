@@ -318,6 +318,10 @@ textarea {
     <div class="api-key-section">
       <label for="apiKey">Gemini API Key (本機儲存)</label>
       <input type="password" id="apiKey" placeholder="請輸入 API Key 以啟用 AI 辨識" />
+      <p style="margin-top: 6px; font-size: 0.85rem; color: #666; line-height: 1.4;">
+        💡 金鑰僅儲存在您的瀏覽器本地 (localStorage)，絕不上傳伺服器。<br>
+        尚未擁有金鑰？可免費前往 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #0066cc; text-decoration: underline;">Google AI Studio 申請金鑰 ↗</a>
+      </p>
     </div>
 
     <section class="step-section">
@@ -417,9 +421,16 @@ textarea {
       apiKeyInput.value = savedApiKey;
     }
 
-    apiKeyInput.addEventListener('change', (e) => {
-      localStorage.setItem('geminiApiKey', e.target.value);
-    });
+    const saveApiKey = () => {
+      const val = apiKeyInput.value.trim();
+      if (val) {
+        localStorage.setItem('geminiApiKey', val);
+      } else {
+        localStorage.removeItem('geminiApiKey');
+      }
+    };
+    apiKeyInput.addEventListener('input', saveApiKey);
+    apiKeyInput.addEventListener('change', saveApiKey);
 
     let uploadedFiles = [];
 
@@ -546,9 +557,23 @@ textarea {
     aiButton.addEventListener('click', async () => {
       const apiKey = apiKeyInput.value.trim();
       if (!apiKey) {
-        alert('請先輸入 Gemini API Key');
+        statusMessage.textContent = '⚠️ 請先輸入 Gemini API Key 才能開始辨識！';
+        statusMessage.className = 'status-message error';
+        apiKeyInput.focus();
+        const goToAiStudio = confirm(
+          '【尚未設定 Gemini API Key】\n\n' +
+          '本工具為純前端運作，為保障您的資料與金鑰安全，所有辨識皆需使用您個人的 API Key。\n' +
+          '金鑰僅會儲存在您的瀏覽器本機 (localStorage)，絕不上傳伺服器。\n\n' +
+          '請問是否立即前往 Google AI Studio 免費申請 API Key？\n（申請後複製貼入上方金鑰欄位即可使用）'
+        );
+        if (goToAiStudio) {
+          window.open('https://aistudio.google.com/app/apikey', '_blank');
+        }
         return;
       }
+
+      // 確保金鑰已儲存至瀏覽器本地
+      localStorage.setItem('geminiApiKey', apiKey);
 
       try {
         aiButton.disabled = true;
