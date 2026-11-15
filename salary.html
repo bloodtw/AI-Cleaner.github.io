@@ -519,8 +519,16 @@
           <span>時薪 550 元</span>
         </div>
         <div class="rule-item">
+          <strong>浴室清潔</strong>
+          <span>時薪 700 元</span>
+        </div>
+        <div class="rule-item">
           <strong>幫棒平台</strong>
           <span>備註總收入 × 67.2%</span>
+        </div>
+        <div class="rule-item">
+          <strong>中重度髒污清潔</strong>
+          <span>明細列附空格手動填入增加時薪</span>
         </div>
       </div>
     </div>
@@ -824,6 +832,8 @@
       const desc = (description || '').trim();
       const combined = `${sum} ${desc}`;
       const lowerSum = sum.toLowerCase();
+      const hasHeavyDirt = combined.includes('中重度髒污');
+      const isBathroom = sum.includes('浴室清潔') || desc.includes('浴室清潔');
 
       // Non-working events
       if (!sum || sum === '休息' || sum.includes('聚餐') || sum.includes('休假')) {
@@ -832,8 +842,36 @@
           serviceType: '非工作行程',
           category: '非計薪行程',
           ruleText: '不計薪',
+          baseHourly: 0,
+          basePay: 0,
+          extraHourly: 0,
+          hasHeavyDirt: false,
           pay: 0,
           included: false
+        };
+      }
+
+      // Extract platform
+      let platform = '其他';
+      if (sum.includes('大管家') || sum.includes('支援')) platform = '大管家';
+      else if (lowerSum.includes('cp')) platform = '私接';
+      else if (sum.includes('幫棒')) platform = '幫棒';
+
+      // Rule 0: 浴室清潔 -> 時薪 700 元
+      if (isBathroom) {
+        const basePay = Math.round(hours * 700);
+        const catPrefix = platform === '其他' ? '專業清潔' : platform;
+        return {
+          platform,
+          serviceType: '浴室清潔',
+          category: `${catPrefix} - 浴室清潔`,
+          ruleText: '時薪 700 元' + (hasHeavyDirt ? ' (+中重度加價)' : ''),
+          baseHourly: 700,
+          basePay,
+          extraHourly: 0,
+          hasHeavyDirt,
+          pay: basePay,
+          included: true
         };
       }
 
@@ -848,58 +886,74 @@
       }
 
       // Rule 1: 大管家 or 支援 -> 時薪 400
-      if (sum.includes('大管家') || sum.includes('支援')) {
-        const pay = Math.round(hours * 400);
+      if (platform === '大管家') {
+        const basePay = Math.round(hours * 400);
         return {
           platform: '大管家',
           serviceType,
           category: `大管家 - ${serviceType}`,
-          ruleText: '時薪 400 元',
-          pay,
+          ruleText: '時薪 400 元' + (hasHeavyDirt ? ' (+中重度加價)' : ''),
+          baseHourly: 400,
+          basePay,
+          extraHourly: 0,
+          hasHeavyDirt,
+          pay: basePay,
           included: true
         };
       }
 
       // Rule 2: cp550 -> 時薪 550 (check before cp!)
       if (lowerSum.includes('cp550')) {
-        const pay = Math.round(hours * 550);
+        const basePay = Math.round(hours * 550);
         return {
           platform: '私接',
           serviceType: 'CP550',
           category: '私接 - CP550',
-          ruleText: '時薪 550 元',
-          pay,
+          ruleText: '時薪 550 元' + (hasHeavyDirt ? ' (+中重度加價)' : ''),
+          baseHourly: 550,
+          basePay,
+          extraHourly: 0,
+          hasHeavyDirt,
+          pay: basePay,
           included: true
         };
       }
 
       // Rule 3: cp -> 時薪 500
       if (lowerSum.includes('cp')) {
-        const pay = Math.round(hours * 500);
+        const basePay = Math.round(hours * 500);
         return {
           platform: '私接',
           serviceType: 'CP',
           category: '私接 - CP',
-          ruleText: '時薪 500 元',
-          pay,
+          ruleText: '時薪 500 元' + (hasHeavyDirt ? ' (+中重度加價)' : ''),
+          baseHourly: 500,
+          basePay,
+          extraHourly: 0,
+          hasHeavyDirt,
+          pay: basePay,
           included: true
         };
       }
 
       // Rule 4: 幫棒 -> 備註總收入 * 67.2%
-      if (sum.includes('幫棒')) {
+      if (platform === '幫棒') {
         let gross = 0;
         const match = combined.match(/總收入[：:\s]*\$?\s*(\d+(?:\.\d+)?)/);
         if (match) {
           gross = parseFloat(match[1]);
         }
-        const pay = gross * 0.672;
+        const basePay = gross * 0.672;
         return {
           platform: '幫棒',
           serviceType,
           category: `幫棒 - ${serviceType}`,
-          ruleText: gross > 0 ? `總收入 ${gross} × 67.2%` : '未偵測到總收入',
-          pay,
+          ruleText: (gross > 0 ? `總收入 ${gross} × 67.2%` : '未偵測到總收入') + (hasHeavyDirt ? ' (+中重度加價)' : ''),
+          baseHourly: 0,
+          basePay,
+          extraHourly: 0,
+          hasHeavyDirt,
+          pay: basePay,
           included: true
         };
       }
@@ -910,6 +964,10 @@
         serviceType,
         category: `其他 - ${serviceType}`,
         ruleText: '需手動設定',
+        baseHourly: 0,
+        basePay: 0,
+        extraHourly: 0,
+        hasHeavyDirt,
         pay: 0,
         included: true
       };
@@ -1054,6 +1112,12 @@
           <td>
             <strong>${escapeHtml(e.summary)}</strong><br>
             <span class="badge" style="margin-top:4px; display:inline-block;">${escapeHtml(e.category)}</span>
+            ${e.hasHeavyDirt ? `
+              <div style="margin-top:6px; background:#FFF3E0; border:1px solid #FF9500; border-radius:8px; padding:6px 8px; font-size:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <span style="color:#C76B00; font-weight:600;">⚠️ 中重度髒污加價 (元/hr)：</span>
+                <input type="number" step="10" min="0" placeholder="請填入" value="${e.extraHourly || ''}" style="width:74px; padding:3px 6px; border:1px solid #FF9500; border-radius:6px; text-align:right; background:#fff; font-weight:600;" onchange="updateExtraHourly(${idx}, this.value)">
+              </div>
+            ` : ''}
           </td>
           <td class="desc-cell">${escapeHtml(e.description || '(無說明)')}</td>
           <td class="num">
@@ -1073,11 +1137,20 @@
 
     function updateEventHours(idx, val) {
       const hrs = parseFloat(val) || 0;
-      eventsList[idx].hours = hrs;
-      if (eventsList[idx].platform === '大管家' || eventsList[idx].platform === '私接') {
-        const rate = eventsList[idx].serviceType === 'CP550' ? 550 : (eventsList[idx].serviceType === 'CP' ? 500 : 400);
-        eventsList[idx].pay = hrs * rate;
+      const item = eventsList[idx];
+      item.hours = hrs;
+      if (item.baseHourly > 0) {
+        item.basePay = hrs * item.baseHourly;
       }
+      item.pay = (item.basePay || 0) + (item.extraHourly || 0) * hrs;
+      renderAll();
+    }
+
+    function updateExtraHourly(idx, val) {
+      const extra = parseFloat(val) || 0;
+      const item = eventsList[idx];
+      item.extraHourly = extra;
+      item.pay = (item.basePay || 0) + extra * (item.hours || 0);
       renderAll();
     }
 
