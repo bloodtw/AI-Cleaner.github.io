@@ -519,8 +519,8 @@
           <span>時薪 550 元</span>
         </div>
         <div class="rule-item">
-          <strong>浴室清潔</strong>
-          <span>時薪 700 元</span>
+          <strong>浴室清潔 / 精緻浴室 / 浴室中重度髒污清潔</strong>
+          <span>單次基本收費 700 元</span>
         </div>
         <div class="rule-item">
           <strong>幫棒平台</strong>
@@ -832,8 +832,12 @@
       const desc = (description || '').trim();
       const combined = `${sum} ${desc}`;
       const lowerSum = sum.toLowerCase();
-      const hasHeavyDirt = combined.includes('中重度髒污');
-      const isBathroom = sum.includes('浴室清潔') || desc.includes('浴室清潔');
+      const hasHeavyDirt = combined.includes('中重度髒污') || combined.includes('中重度髒汙');
+      const isBathroom =
+        sum.includes('浴室清潔') || desc.includes('浴室清潔') ||
+        sum.includes('精緻浴室') || desc.includes('精緻浴室') ||
+        sum.includes('浴室中重度髒污') || desc.includes('浴室中重度髒污') ||
+        sum.includes('浴室中重度髒汙') || desc.includes('浴室中重度髒汙');
 
       // Non-working events
       if (!sum || sum === '休息' || sum.includes('聚餐') || sum.includes('休假')) {
@@ -857,16 +861,16 @@
       else if (lowerSum.includes('cp')) platform = '私接';
       else if (sum.includes('幫棒')) platform = '幫棒';
 
-      // Rule 0: 浴室清潔 -> 時薪 700 元
+      // Rule 0: 浴室清潔 / 精緻浴室 / 浴室中重度髒污(汙)清潔 -> 單次基本收費 700 元
       if (isBathroom) {
-        const basePay = Math.round(hours * 700);
+        const basePay = 700;
         const catPrefix = platform === '其他' ? '專業清潔' : platform;
         return {
           platform,
           serviceType: '浴室清潔',
           category: `${catPrefix} - 浴室清潔`,
-          ruleText: '時薪 700 元' + (hasHeavyDirt ? ' (+中重度加價)' : ''),
-          baseHourly: 700,
+          ruleText: '單次基本 700 元' + (hasHeavyDirt ? ' (+中重度加價)' : ''),
+          baseHourly: 0,
           basePay,
           extraHourly: 0,
           hasHeavyDirt,
