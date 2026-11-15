@@ -811,6 +811,12 @@
       document.getElementById('gasWebhookUrl').addEventListener('input', (e) => {
         localStorage.setItem('gasWebhookUrl', e.target.value.trim());
       });
+
+      document.getElementById('calendarSelect').addEventListener('change', (e) => {
+        if (e.target.value) localStorage.setItem('selectedCalendarId', e.target.value);
+      });
+
+      restoreGoogleSession();
     });
 
     function toggleKeyVisibility(id) {
@@ -1400,8 +1406,82 @@ ${rawText}`;
     }
 
     // ==========================================
-    // Google OAuth2 + Calendar API
+    // Google OAuth2 + Calendar API (Auto-Remember Session)
     // ==========================================
+    function setGoogleConnectedUI(connected) {
+      const badge = document.getElementById('googleAuthBadge');
+      if (connected) {
+        badge.textContent = '已連結（已記憶）';
+        badge.className = 'badge badge-green';
+        document.getElementById('btnGoogleSignOut').style.display = 'inline-flex';
+        document.getElementById('btnFetchCal').disabled = false;
+      } else {
+        badge.textContent = '未連結';
+        badge.className = 'badge badge-orange';
+        document.getElementById('btnGoogleSignOut').style.display = 'none';
+        document.getElementById('btnFetchCal').disabled = true;
+        document.getElementById('calendarSelect').innerHTML = '<option value="">請先連結 Google 帳號以載入日曆清單...</option>';
+      }
+    }
+
+    function saveGoogleToken(resp) {
+      googleAccessToken = resp.access_token;
+      const expiresIn = Number(resp.expires_in) || 3600;
+      const expiryMs = Date.now() + Math.max(60, expiresIn - 60) * 1000;
+      localStorage.setItem('googleAccessToken', googleAccessToken);
+      localStorage.setItem('googleTokenExpiry', String(expiryMs));
+      localStorage.setItem('googleWasConnected', 'true');
+      setGoogleConnectedUI(true);
+      loadGoogleCalendars();
+    }
+
+    function initGoogleTokenClient(clientId, onError) {
+      return google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: GOOGLE_SCOPES,
+        callback: (resp) => {
+          if (resp.error) {
+            if (onError) onError(resp.error);
+            else showStatus('importStatus', '❌ Google 授權失敗：' + resp.error, 'error');
+            return;
+          }
+          saveGoogleToken(resp);
+        }
+      });
+    }
+
+    function restoreGoogleSession() {
+      const savedToken = localStorage.getItem('googleAccessToken');
+      const savedExpiry = Number(localStorage.getItem('googleTokenExpiry') || 0);
+      const clientId = localStorage.getItem('googleClientId') || '';
+      const wasConnected = localStorage.getItem('googleWasConnected') === 'true';
+
+      if (savedToken && Date.now() < savedExpiry) {
+        googleAccessToken = savedToken;
+        setGoogleConnectedUI(true);
+        loadGoogleCalendars();
+        return;
+      }
+
+      // Token expired but user previously connected -> try silent refresh once GIS loads
+      if (wasConnected && clientId) {
+        let attempts = 0;
+        const timer = setInterval(() => {
+          attempts++;
+          if (typeof google !== 'undefined' && google.accounts?.oauth2) {
+            clearInterval(timer);
+            tokenClient = initGoogleTokenClient(clientId, () => {
+              // Silent refresh failed (user must click login once)
+              setGoogleConnectedUI(false);
+            });
+            tokenClient.requestAccessToken({ prompt: '' });
+          } else if (attempts > 20) {
+            clearInterval(timer);
+          }
+        }, 300);
+      }
+    }
+
     function handleGoogleAuth() {
       const clientId = document.getElementById('googleClientId').value.trim();
       if (!clientId) {
@@ -1414,23 +1494,9 @@ ${rawText}`;
         return;
       }
 
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: GOOGLE_SCOPES,
-        callback: (resp) => {
-          if (resp.error) {
-            showStatus('importStatus', '❌ Google 授權失敗：' + resp.error, 'error');
-            return;
-          }
-          googleAccessToken = resp.access_token;
-          document.getElementById('googleAuthBadge').textContent = '已連結';
-          document.getElementById('googleAuthBadge').className = 'badge badge-green';
-          document.getElementById('btnGoogleSignOut').style.display = 'inline-flex';
-          document.getElementById('btnFetchCal').disabled = false;
-          loadGoogleCalendars();
-        }
-      });
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      const wasConnected = localStorage.getItem('googleWasConnected') === 'true';
+      tokenClient = initGoogleTokenClient(clientId);
+      tokenClient.requestAccessToken({ prompt: wasConnected ? '' : 'select_account' });
     }
 
     function handleGoogleSignOut() {
@@ -1438,11 +1504,10 @@ ${rawText}`;
         google.accounts.oauth2.revoke(googleAccessToken);
       }
       googleAccessToken = null;
-      document.getElementById('googleAuthBadge').textContent = '未連結';
-      document.getElementById('googleAuthBadge').className = 'badge badge-orange';
-      document.getElementById('btnGoogleSignOut').style.display = 'none';
-      document.getElementById('btnFetchCal').disabled = true;
-      document.getElementById('calendarSelect').innerHTML = '<option value="">請先連結 Google 帳號以載入日曆清單...</option>';
+      localStorage.removeItem('googleAccessToken');
+      localStorage.removeItem('googleTokenExpiry');
+      localStorage.removeItem('googleWasConnected');
+      setGoogleConnectedUI(false);
     }
 
     async function loadGoogleCalendars() {
@@ -1450,10 +1515,21 @@ ${rawText}`;
         const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
           headers: { Authorization: `Bearer ${googleAccessToken}` }
         });
+        if (res.status === 401) {
+          localStorage.removeItem('googleAccessToken');
+          localStorage.removeItem('googleTokenExpiry');
+          googleAccessToken = null;
+          setGoogleConnectedUI(false);
+          return;
+        }
         const data = await res.json();
         const select = document.getElementById('calendarSelect');
         const items = data.items || [];
-        select.innerHTML = items.map(c => `<option value="${escapeHtml(c.id)}" ${c.summary.includes('02 專案管理') ? 'selected' : ''}>${escapeHtml(c.summary)}</option>`).join('');
+        const savedCalId = localStorage.getItem('selectedCalendarId') || '';
+        select.innerHTML = items.map(c => {
+          const isSelected = savedCalId ? c.id === savedCalId : c.summary.includes('02 專案管理');
+          return `<option value="${escapeHtml(c.id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(c.summary)}</option>`;
+        }).join('');
       } catch (err) {
         showStatus('importStatus', '❌ 無法載入日曆清單：' + err.message, 'error');
       }
